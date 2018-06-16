@@ -63,7 +63,7 @@ y_train = y_train.toarray().astype(np.float32)[0]
 
 
 from sklearn.linear_model import LogisticRegression
-lr= LogisticRegression(solver='sag', n_jobs=-1)
+lr= LogisticRegression(multi_class='ovr', penalty='l2', solver='sag', n_jobs=4)
 
 
 print('training . . . ')
@@ -158,7 +158,7 @@ plt.ylabel( 'neg-logloss' )
 #plt.savefig('LogisticGridSearchCV_C.png' )
 
 plt.show()# plot CV误差曲线
-
+"""
 
 # ## SVC_linear
 
