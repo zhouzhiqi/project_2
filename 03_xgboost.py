@@ -1,26 +1,5 @@
 # coding: utf-8
 
-# |名称|含义|
-# | : | : |
-# |id | ad identifier
-# |click | 1是点击 0/1 for non-click/click
-# |hour | 时间, YYMMDDHH, so 14091123 means 2014年09月11号23:00 UTC.
-# |C1 | 未知分类变量 anonymized categorical variable
-# |banner_pos|标语,横幅
-# |site_id|网站ID号
-# |site_domain|网站 域?
-# |site_category|网站类别
-# |app_id|appID号
-# |app_domain|应用 域?
-# |app_category|应用类别
-# |device_id|设备ID号
-# |device_ip|设备ip地址
-# |device_model|设备型号, 如iphone5/iphone4
-# |device_type|设备类型, 如智能手机/平板电脑
-# |device_conn_type|连接设备类型
-# |C14-C21|未知分类变量 anonymized categorical variables
-
-
 try: 
     from tinyenv.flags import flags
 except ImportError:
@@ -49,8 +28,10 @@ import os
 import scipy.sparse as ss
 #from  sklearn.cross_validation  import  train_test_split 
 import xgboost as xgb
+from sklearn.metrics import accuracy_score,log_loss
 
 
+#定义参数
 data_path = FLAGS.data_dir  # + '../data/project_2/'
 file_name = FLAGS.file_name
 chunksize = FLAGS.chunksize
@@ -70,8 +51,8 @@ print('to xgb.DMatrix')
 xgtrain = xgb.DMatrix(X_train, label = y_train,)
 
 #设置参数, 开始训练
-print('training . . .')
-
+start_time = time.time()
+print('training . . . ')
 param = dict(
         learning_rate =0.4, 
         booster='gbtree',
@@ -87,7 +68,8 @@ param = dict(
         silent=0,
         eval_metric='logloss',
         seed=3)
-deep = FLAGS.max_depth + 1   #实际树的深度为 max_depth+1
+        
+deep = FLAGS.max_depth   #实际树的深度为 max_depth+1
 num_trees = FLAGS.num_trees  #树的数量
 
 #调用cv函数
@@ -96,9 +78,13 @@ num_trees = FLAGS.num_trees  #树的数量
 #print(bst_train)
 
 #训练模型
+start_time = time.time()
+print('training . . . ')
 bst_train = xgb.train(param, xgtrain, num_trees, )
+print('cost time:{0}'.format(int(time.time() - start_time)))
+
 #保存模型
-bst_train.save_model(output_path + 'xgb_tree{0}_deep{1}'.format(num_trees, deep))
+bst_train.save_model(output_path + 'tree{0}_deep{1}.xgboost'.format(num_trees, deep))
 
 
 
@@ -120,5 +106,3 @@ train_log_loss = log_loss(y_train, train_preds)
 print ("Train log_loss: " , train_log_loss)
 
 print('over-----')
-
-pass
