@@ -7,6 +7,7 @@ except ImportError:
         def __init__(self):
             self.output_dir = '../data/project_2/models/'
             self.data_dir = '../data/project_2/output_test_click/'
+            self.model_dir = '../data/project_2/models/'
             self.file_name = 'test_click'
             self.chunksize = 1e3
             self.threshold = 10
@@ -27,6 +28,7 @@ import os
 import scipy.sparse as ss
 #from  sklearn.cross_validation  import  train_test_split 
 import xgboost as xgb
+from sklearn.externals import joblib
 
 
 data_path = FLAGS.data_dir  
@@ -36,6 +38,29 @@ threshold = FLAGS.threshold
 output_path = FLAGS.output_dir
 deep = FLAGS.max_depth + 1   #实际树的深度为 max_depth+1
 num_trees = FLAGS.num_trees  #树的数量
+model_path = FLAGS.model_dir
+
+def XGBPredict(X_train, y_train, model_path, num_trees, deep):
+
+    #转为xgb专用数据格式
+    print('to xgb.DMatrix')
+    xgtrain = xgb.DMatrix(X_train, label = y_train,)
+    #导入模型
+    xgb_model = xgb.Booster(model_file=model_path + 'tree{0}_deep{1}.xgboost'.format(num_trees, deep))
+    #开始预测
+    print('xgboost predict . . .')
+    train_preds = xgb_model.predict(xgtrain)
+    return train_preds
+
+def LRPredict(X_train, y_train, model_path):
+    #保存模型
+    lr_model = joblib.load(model_path+'LR.sklearn')
+    #进行评价
+    print('LR.sklearn predict . . .')
+    train_preds = lr_model.predict_proba(X_train)[:,1]
+    return train_preds
+
+
 
 #导入数据
 print('Load Data')
@@ -45,16 +70,11 @@ y_train = y_train.toarray().astype(np.float32)[0]
 # 先转成np.array, 把数据类型转为np.float32(此时为2维数组shape(1,n)), 转为1-D np.arrar
 # 2维数组shape(m,n)适用于多分类问题, 在二分类中不适用
 
-#转为xgb专用数据格式
-print('to xgb.DMatrix')
-xgtrain = xgb.DMatrix(X_train, label = y_train,)
-
-#导入模型
-xgb_model = xgb.Booster(model_file=output_path + 'xgb_tree{0}_deep{1}'.format(num_trees, deep))
-
-#开始预测
-print('predict . . .')
-train_preds = xgb_model.predict(xgtrain)
+#获得预测结果
+train_preds_xgb = XGBPredict(X_train, y_train, model_path, num_trees, deep)
+train_preds_llr = LRPredict(X_train, y_train, model_path)
+#取平均值
+train_preds = (train_preds_xgb + train_preds_llr) / 2
 
 #合并test_id与predict
 submission = pd.read_csv(data_path + '{0}_id.csv'.format(file_name), dtype=np.uint64)
