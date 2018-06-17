@@ -1,8 +1,5 @@
 # coding: utf-8
-"""import os
-print(os.getcwd())
-os.chdir('/media/zhou/0004DD1700005FE8/AI/00/project_2/')
-print(os.getcwd())"""
+
 # exit()
 # |名称|含义|
 # | : | : |
@@ -32,20 +29,30 @@ print(os.getcwd())"""
 #  
 
 
+import os
+print(os.getcwd())
+#os.chdir('/media/zhou/0004DD1700005FE8/AI/00/project_2/')
+os.chdir('E:/AI/00/project_2')
+print(os.getcwd())
+
+
 try: 
     from tinyenv.flags import flags
 except ImportError:
     # 若在本地运行，则自动生成相同的class
     class flags(object):
         def __init__(self):
-            self.output_dir = '../data/project_2/test/'
-            self.data_dir = '../data/project_2/'
-            self.file_name = 'test'
+            self.file_name = 'minitrain'
+            self.output_dir = '../data/project_2/models/'
+            self.data_dir = '../data/project_2/output_{0}/'.format(self.file_name)
+            self.model_dir = '../data/project_2/models/'
             self.chunksize = 1e3
             self.threshold = 10
             self.data_begin = 0
             self.data_end = 1e5
             self.id_index = 0
+            self.num_trees = 30
+            self.max_depth = 8
 
 #实例化class
 FLAGS = flags()

@@ -1,14 +1,21 @@
 
+import os
+print(os.getcwd())
+#os.chdir('/media/zhou/0004DD1700005FE8/AI/00/project_2/')
+os.chdir('E:/AI/00/project_2')
+print(os.getcwd())
+
+
 try: 
     from tinyenv.flags import flags
 except ImportError:
     # 若在本地运行，则自动生成相同的class
     class flags(object):
         def __init__(self):
+            self.file_name = 'minitrain'
             self.output_dir = '../data/project_2/models/'
-            self.data_dir = '../data/project_2/output_test_click/'
+            self.data_dir = '../data/project_2/output_{0}/'.format(self.file_name)
             self.model_dir = '../data/project_2/models/'
-            self.file_name = 'test_click'
             self.chunksize = 1e3
             self.threshold = 10
             self.data_begin = 0

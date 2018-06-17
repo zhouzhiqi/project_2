@@ -1,6 +1,12 @@
 
 # coding: utf-8
 
+import os
+print(os.getcwd())
+#os.chdir('/media/zhou/0004DD1700005FE8/AI/00/project_2/')
+os.chdir('E:/AI/00/project_2')
+print(os.getcwd())
+
 
 try: 
     from tinyenv.flags import flags
@@ -8,9 +14,10 @@ except ImportError:
     # 若在本地运行，则自动生成相同的class
     class flags(object):
         def __init__(self):
-            self.output_dir = '../data/project_2/models/'
-            self.data_dir = '../data/project_2/output_minitrain/'
             self.file_name = 'minitrain'
+            self.output_dir = '../data/project_2/models/'
+            self.data_dir = '../data/project_2/output_{0}/'.format(self.file_name)
+            self.model_dir = '../data/project_2/models/'
             self.chunksize = 1e3
             self.threshold = 10
             self.data_begin = 0
@@ -18,7 +25,6 @@ except ImportError:
             self.id_index = 0
             self.num_trees = 30
             self.max_depth = 8
-            self.is_pred = False
 
 #实例化class
 FLAGS = flags()
@@ -44,6 +50,7 @@ threshold = FLAGS.threshold
 output_path = FLAGS.output_dir
 deep = FLAGS.max_depth + 1   #实际树的深度为 max_depth+1
 num_trees = FLAGS.num_trees  #树的数量
+model_path = FLAGS.model_dir
 
 #导入数据
 print('Load Data')
@@ -53,7 +60,7 @@ y_train = y_train.toarray().astype(np.float32)[0]
 
 #导入模型
 
-lr= LogisticRegression(multi_class='ovr', penalty='l2', solver='sag', C=0.1 n_jobs=-1)
+lr= LogisticRegression(multi_class='ovr', penalty='l2', solver='sag', C=0.1, n_jobs=-1)
 
 #开始训练
 start_time = time.time()
@@ -62,7 +69,7 @@ lr.fit(X_train, y_train, )
 print('cost time:{0}'.format(int(time.time() - start_time)))
 
 #保存模型
-joblib.dump(lr, output_path+'LR_sklearn.model')
+joblib.dump(lr, model_path+'LR_sklearn.model')
 
 #进行评价
 train_preds = lr.predict_proba(X_train)[:,1]

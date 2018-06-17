@@ -1,14 +1,22 @@
 # coding: utf-8
 
+import os
+print(os.getcwd())
+#os.chdir('/media/zhou/0004DD1700005FE8/AI/00/project_2/')
+os.chdir('E:/AI/00/project_2')
+print(os.getcwd())
+
+
 try: 
     from tinyenv.flags import flags
 except ImportError:
     # 若在本地运行，则自动生成相同的class
     class flags(object):
         def __init__(self):
-            self.output_dir = '../data/project_2/models/'
-            self.data_dir = '../data/project_2/output_minitrain/'
             self.file_name = 'minitrain'
+            self.output_dir = '../data/project_2/models/'
+            self.data_dir = '../data/project_2/output_{0}/'.format(self.file_name)
+            self.model_dir = '../data/project_2/models/'
             self.chunksize = 1e3
             self.threshold = 10
             self.data_begin = 0
@@ -37,6 +45,7 @@ file_name = FLAGS.file_name
 chunksize = FLAGS.chunksize
 threshold = FLAGS.threshold
 output_path = FLAGS.output_dir
+model_path = FLAGS.model_dir
 
 #导入数据
 print('Load Data')
@@ -84,7 +93,7 @@ bst_train = xgb.train(param, xgtrain, num_trees, )
 print('cost time:{0}'.format(int(time.time() - start_time)))
 
 #保存模型
-bst_train.save_model(output_path + 'tree{0}_deep{1}.xgboost'.format(num_trees, deep))
+bst_train.save_model(model_path + 'tree{0}_deep{1}.xgboost'.format(num_trees, deep))
 
 
 
