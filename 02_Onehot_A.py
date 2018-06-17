@@ -272,27 +272,29 @@ class OneHotEncoder(object):
 # ===========================================
 
 if __name__ == "__main__":
-    """
+    
     #解压文件
     ExtractData(FLAGS.data_dir)
     #设定参数
+    file_size = 404291  #总的数据量
+    block_size = 100000  #数据块大小
     param =[dict( data_path = FLAGS.data_dir,
             file_name = FLAGS.file_name,
             chunksize = FLAGS.chunksize,
             data_begin = XX_data_begin,
-            data_end = XX_data_begin+100000,
+            data_end = XX_data_begin+block_size,
             output_path = FLAGS.output_dir,
             threshold = FLAGS.threshold )
-            for XX_data_begin in range(0,404291,100000)]
+            for XX_data_begin in range(0,file_size,block_size)]
     #多进程处理onehot
     with Pool(4) as p:
         p.map(OneHotEncoder, param)
-    """
+    
     #设定参数
     data_path = FLAGS.data_dir
     output_path = FLAGS.output_dir
     file_name = FLAGS.file_name
-    data_begins = [i for i in range(0,404291,100000)]
+    data_begins = [i for i in range(0,file_size,block_size)]
     threshold = FLAGS.threshold
     chunksize = FLAGS.chunksize
     #把生成好的.npz全部合并
