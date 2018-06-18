@@ -96,7 +96,6 @@ print('cost time:{0}'.format(int(time.time() - start_time)))
 bst_train.save_model(model_path + 'tree{0}_deep{1}.xgboost'.format(num_trees, deep))
 
 
-
 """
 #生成xgb处理后的高阶特征
 new_feature = bst_train.predict(xgtrain, pred_leaf=True)

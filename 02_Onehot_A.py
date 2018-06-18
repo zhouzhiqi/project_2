@@ -1,26 +1,5 @@
 # coding: utf-8
 
-# exit()
-# |名称|含义|
-# | : | : |
-# |id | ad identifier
-# |click | 1是点击 0/1 for non-click/click
-# |hour | 时间, YYMMDDHH, so 14091123 means 2014年09月11号23:00 UTC.
-# |C1 | 未知分类变量 anonymized categorical variable
-# |banner_pos|标语,横幅
-# |site_id|网站ID号
-# |site_domain|网站 域?
-# |site_category|网站类别
-# |app_id|appID号
-# |app_domain|应用 域?
-# |app_category|应用类别
-# |device_id|设备ID号
-# |device_ip|设备ip地址
-# |device_model|设备型号, 如iphone5/iphone4
-# |device_type|设备类型, 如智能手机/平板电脑
-# |device_conn_type|连接设备类型
-# |C14-C21|未知分类变量 anonymized categorical variables
-
 # filelist: 
 #         train:40428967,   count:9449445,
 #     minitrain:4042898,   more_5:1544466
@@ -32,7 +11,7 @@
 import os
 print(os.getcwd())
 #os.chdir('/media/zhou/0004DD1700005FE8/AI/00/project_2/')
-os.chdir('E:/AI/00/project_2')
+#os.chdir('E:/AI/00/project_2')
 print(os.getcwd())
 
 
@@ -44,10 +23,10 @@ except ImportError:
         def __init__(self):
             self.file_name = 'minitrain'
             self.output_dir = '../data/project_2/models/'
-            self.data_dir = '../data/project_2/output_{0}/'.format(self.file_name)
+            self.data_dir = '../data/project_2/Onehot_B/'#.format(self.file_name)
             self.model_dir = '../data/project_2/models/'
             self.chunksize = 1e3
-            self.threshold = 10
+            self.threshold = 20
             self.data_begin = 0
             self.data_end = 1e5
             self.id_index = 0
@@ -164,8 +143,8 @@ class OneHotEncoder(object):
         data_tmp: 数据
         get_index: 通过组合好的特征名, 获取索引
         return: 返回稀疏矩阵scipy.sparse, 不包含'id'"""
-        # 初始化onehot数组, 全部为0, 有值置1
-        onehot = np.zeros((data_tmp.shape[0],get_index.shape[0]), dtype=np.int8)
+        # 初始化onehot数组, 全部为0, 有值置1             这里的+1,是用来累加那些频率小于10的特征取值
+        onehot = np.zeros((data_tmp.shape[0],get_index.shape[0]+1), dtype=np.int8)
 
         # 把特征名称与特征取值结合起来, 做为get_index的索引
         for c in data_tmp.columns: 
@@ -177,17 +156,18 @@ class OneHotEncoder(object):
             index = data_tmp.iloc[i,3:]  #取出['C1':]的values(合成过)
             for c in index:  #逐个values去get_index的索引
                 try: j =  get_index[c] #找到索引, 赋值 1
-                except KeyError: continue  #找不到索引, 跳出这次循环
-                onehot[i, j] = 1
+                except KeyError:  #找不到索引, 说明频率小于10,
+                    onehot[i, -1] += 1 
+                    continue   #在末尾累加
+                onehot[i, j] = 1  #对应位置赋值为1
 
-        # finale_data最后三列 ['hour', 'week', 'click']
-        onehot[:, -3] = data_tmp.loc[:, 'hour'].values %14100000 %100
-        onehot[:, -2] = ((data_tmp.loc[:, 'hour'].values %14100000 //100) %7 +2) %7
-        onehot[:, -1] = data_tmp.loc[:, 'click'].values 
+        # 拆分时间
+        split_hour = self.SplitHour(data_tmp)
 
         # 压缩数据, onehot编码用行压缩, label用列压缩
         X_train = ss.csr_matrix(onehot[:, :-1])  #转成 行 稀疏矩阵
-        y_train = ss.csc_matrix(onehot[:, -1])  #转成 列 稀疏矩阵
+        X_train = ss.hstack((X_train, split_hour))  #和拆分好的时间 以 列 拼接
+        y_train = ss.csc_matrix(data_tmp.loc[:, 'click'].values)  #转成 列 稀疏矩阵
 
         return X_train, y_train
 
@@ -206,6 +186,20 @@ class OneHotEncoder(object):
             self.total_size += data_tmp.shape[0]  #累加当前数据量
             return data_tmp  #返回取出的数据
 
+    def SplitHour(self, data_tmp):
+        """对时间进行拆分, 并onehot"""
+        # 拆分后的新特征 ['workingday':1-5,6-7, 'week'1~7,  'hour':0~23,
+        # 'certaintimes':0-4,5-9,10-14,15-19,20-23,] 共37列
+        split_hour = np.zeros((data_tmp.shape[0], 38), dtype=np.int8)
+        hour = data_tmp.loc[:, 'hour'].values %14100000 %100
+        week = ((data_tmp.loc[:, 'hour'].values %14100000 //100) %7 +2) %7
+        for i in np.arange(data_tmp.shape[0]):
+            split_hour[i, week[i]//5] = 1
+            split_hour[i, week[i]] = 1
+            split_hour[i, hour[i]+8] = 1
+            split_hour[i, hour[i]//5+32] = 1
+        return ss.csr_matrix(split_hour)
+
 
     def GetOnehotColums(self, data_path, file_name='count', threshold=10):
         """获取OneHot编码后的列名columns"""
@@ -214,7 +208,7 @@ class OneHotEncoder(object):
         #读取计数文件, 第一列为index (index_col=0)
         more_th = count[count['total']>=threshold].index  
         #找出频率大于 threshold 的特征名与特征值的组合, 做为OneHot的列名columns, 
-        more_th = more_th.append(pd.Index(['hour', 'week', 'click']))  #添加数值型特征
+        #more_th = more_th.append(pd.Index(['hour', 'week', 'click']))  #添加数值型特征
         get_index = pd.Series(data=np.arange(more_th.shape[0]), index=more_th, dtype=np.uint64)
         #把OneHot的列名columns, 改造成: 特征名与特征值的组合 做为 下标索引, 顺序id 做为 取值
         #简言之: 名称 索引 -> ID 索引
@@ -231,6 +225,7 @@ class OneHotEncoder(object):
             if self.total_size < data_begin: continue  #如果总的数据量小于 开始时的数据量, pass
             else: break  #如果总的数据量大于 开始时的数据量, 往下进行
             gc.collect()
+        print('{0} data has jumped')
         return data
 
     def Train(self, data, get_index, data_end, chunksize):
@@ -283,7 +278,7 @@ if __name__ == "__main__":
     #解压文件
     ExtractData(FLAGS.data_dir)
     #设定参数
-    file_size = 404291  #总的数据量
+    file_size = 4042898  #总的数据量
     block_size = 100000  #数据块大小
     param =[dict( data_path = FLAGS.data_dir,
             file_name = FLAGS.file_name,
@@ -305,7 +300,7 @@ if __name__ == "__main__":
     threshold = FLAGS.threshold
     chunksize = FLAGS.chunksize
     #把生成好的.npz全部合并
-    #a, b = MergeNpz(output_path, file_name, data_begins, threshold,)
+    a, b = MergeNpz(output_path, file_name, data_begins, threshold,)
     
     #把文件中'id'列单独保存为csv
     SaveID(data_path, output_path, file_name, chunksize ,index=0)
