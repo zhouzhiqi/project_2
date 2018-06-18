@@ -23,7 +23,7 @@ except ImportError:
             self.file_name = 'train'
             self.output_name = 'Onehot_B'
             self.output_dir = '../data/project_2/models/'
-            self.data_dir = '../data/project_2/'#output_{0}/'.format(self.file_name)
+            self.data_dir = '../data/project_2/Onehot_B/'#output_{0}/'.format(self.file_name)
             self.model_dir = '../data/project_2/models/'
             self.chunksize = 1e6
             self.threshold = 10
@@ -54,9 +54,9 @@ class Count(object):
     
     def __init__(self, ):
         """初始化参数"""
-        self.data_path = '../data/project_2/'  #数据路径
+        self.data_path = '../data/project_2/Onehot_B/'  #数据路径
         #self.file_name = self.data_path + 'train.csv'
-        self.file_name = self.data_path + 'Onehot_B_train.csv'
+        self.file_name = self.data_path + 'train.csv'
         self.data = pd.read_csv(self.file_name, iterator=True)  #迭代读取csv
         self.chunk_size = 1e6  #每次读入数据量
         self.split = '='  # 最终保存文件index的分割符
@@ -100,7 +100,7 @@ class Count(object):
         click_0 = pd.Series()  #初始化click=0
         click_1 = pd.Series()  #初始化click=1
         for column in tmp.columns:  #按列进行计数, 并 逐列 拼接
-            if column in ['id','click']: continue
+            if column in ['id','click','hour']: continue
             counts_tmp = self.GetCountSeries(tmp, column, click_0_index)
             # 对当前column, click=0 进行统计, 
             click_0 = pd.concat((click_0, counts_tmp))
@@ -121,8 +121,8 @@ class Count(object):
         """对传入两Series中相同索引的值累加, 不同索引的值相拼接"""
         same = a.index & b.index
         a[same] += b[same]
-        unsame = b.index ^ same
-        return pd.concat((a, b[unsame]))
+        b_unsame = b.index ^ same
+        return pd.concat((a, b[b_unsame]))
     
     def ToDataFrame(self, click_0, click_1):
         """将点击数据转为DataFrame"""
