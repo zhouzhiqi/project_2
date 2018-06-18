@@ -165,7 +165,7 @@ class OneHotEncoder(object):
         split_hour = self.SplitHour(data_tmp)
 
         # 压缩数据, onehot编码用行压缩, label用列压缩
-        X_train = ss.csr_matrix(onehot[:, :-1])  #转成 行 稀疏矩阵
+        X_train = ss.csr_matrix(onehot)  #转成 行 稀疏矩阵
         X_train = ss.hstack((X_train, split_hour))  #和拆分好的时间 以 列 拼接
         y_train = ss.csc_matrix(data_tmp.loc[:, 'click'].values)  #转成 列 稀疏矩阵
 
@@ -218,14 +218,14 @@ class OneHotEncoder(object):
 
     def JumpData(self, data, data_begin, chunksize):
         """跳过前 data_begin 条数据"""
-        print('jump data')
+        #print('jump data')
         if data_begin <= 0: return data
         while True:
             data_tmp = self.NextChunk(data, chunksize)  #每次读取chunk_size条数据 
             if self.total_size < data_begin: continue  #如果总的数据量小于 开始时的数据量, pass
             else: break  #如果总的数据量大于 开始时的数据量, 往下进行
             gc.collect()
-        print('{0} data has jumped')
+        print('{0} data has jumped'.format(self.total_size))
         return data
 
     def Train(self, data, get_index, data_end, chunksize):
