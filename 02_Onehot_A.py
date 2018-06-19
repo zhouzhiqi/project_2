@@ -26,7 +26,7 @@ except ImportError:
             self.data_dir = '../data/project_2/Onehot_B/'#.format(self.file_name)
             self.model_dir = '../data/project_2/models/'
             self.chunksize = 1e3
-            self.threshold = 20
+            self.threshold = 10
             self.data_begin = 0
             self.data_end = 1e5
             self.id_index = 0
@@ -168,7 +168,7 @@ class OneHotEncoder(object):
         X_train = ss.csr_matrix(onehot)  #转成 行 稀疏矩阵
         X_train = ss.hstack((X_train, split_hour))  #和拆分好的时间 以 列 拼接
         y_train = ss.csc_matrix(data_tmp.loc[:, 'click'].values)  #转成 列 稀疏矩阵
-
+        #print(X_train.shape)
         return X_train, y_train
 
     def LoadData(self, data_path, file_name):
@@ -194,10 +194,10 @@ class OneHotEncoder(object):
         hour = data_tmp.loc[:, 'hour'].values %14100000 %100
         week = ((data_tmp.loc[:, 'hour'].values %14100000 //100) %7 +2) %7
         for i in np.arange(data_tmp.shape[0]):
-            split_hour[i, week[i]//5] = 1
-            split_hour[i, week[i]] = 1
-            split_hour[i, hour[i]+8] = 1
-            split_hour[i, hour[i]//5+32] = 1
+            split_hour[i, week[i]//5] = 1  #0-1
+            split_hour[i, week[i]+1] = 1   #2-8
+            split_hour[i, hour[i]+9] = 1   #9-32
+            split_hour[i, hour[i]//5+33] = 1  #33-37
         return ss.csr_matrix(split_hour)
 
 
@@ -275,21 +275,24 @@ class OneHotEncoder(object):
 
 if __name__ == "__main__":
     
-    #解压文件
-    ExtractData(FLAGS.data_dir)
+    # 解压提前压缩好的tar.gz文件, 
+    # 主要用于解压上传到tinymind中的数据, 
+    # 本地运行不需要解压 
+    #ExtractData(FLAGS.data_dir)
+
     #设定参数
     file_size = 4042898  #总的数据量
     block_size = 100000  #数据块大小
     param =[dict( data_path = FLAGS.data_dir,
             file_name = FLAGS.file_name,
-            chunksize = FLAGS.chunksize,
+            chunksize = FLAGS.chunksize,  #每次处理数据的多少, 必须被block_size整除
             data_begin = XX_data_begin,
             data_end = XX_data_begin+block_size,
             output_path = FLAGS.output_dir,
             threshold = FLAGS.threshold )
             for XX_data_begin in range(0,file_size,block_size)]
-    #多进程处理onehot
-    with Pool(4) as p:
+    # 多进程处理onehot
+    with Pool(4) as p:  #4为进程数, 可改为更大
         p.map(OneHotEncoder, param)
     
     #设定参数
@@ -299,8 +302,11 @@ if __name__ == "__main__":
     data_begins = [i for i in range(0,file_size,block_size)]
     threshold = FLAGS.threshold
     chunksize = FLAGS.chunksize
-    #把生成好的.npz全部合并
-    a, b = MergeNpz(output_path, file_name, data_begins, threshold,)
+    # 把生成好的.npz全部合并可以选择部分合并, 
+    # 把要合并的begin 放到 list(data_begins)中, 
+    # 如[0,200000,900000]做val, [100000,300000, . . . ]做训练, 
+    # 注意修改生成文件的名子
+    #a, b = MergeNpz(output_path, file_name, data_begins, threshold,)
     
-    #把文件中'id'列单独保存为csv
-    SaveID(data_path, output_path, file_name, chunksize ,index=0)
+    # 把文件中'id'列单独保存为csv, 只有test预测的时候有用
+    #SaveID(data_path, output_path, file_name, chunksize ,index=0)
