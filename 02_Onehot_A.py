@@ -202,6 +202,7 @@ class OneHotEncoder(object):
 
     def XgboostEncoder(self, X_train, y_train, model_path,  num_trees, deep ):
         "对xgboost输出的结点位置文件, 进行onehot"
+        #注意y_train = y_train.toarray().astype(np.float32)[0]
         #model_name = 'tree{0}_deep{1}.xgboost'.format(num_trees, deep)
         #生成空白onehot矩阵, 用于赋值为1,  展开后的维数:每颗树实际有2**(deep+1)个结点, deep为模型的参数max_depth
         length = 2**(deep+1)
@@ -221,6 +222,7 @@ class OneHotEncoder(object):
                 #new_feature[i,tree]是该颗树的叶子结点索引
                 j = tree*length + new_feature[i,tree]
                 leaf_index[i, j] = 1
+
         return ss.csr_matrix(leaf_index)
 
 
