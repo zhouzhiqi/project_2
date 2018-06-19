@@ -97,7 +97,7 @@ bst_train.save_model(model_path + 'tree{0}_deep{1}.xgboost'.format(num_trees, de
 
 
 """
-#生成xgb处理后的高阶特征
+#生成xgb处理后的高阶特征, 用于下一个模型训练
 new_feature = bst_train.predict(xgtrain, pred_leaf=True)
 print('shape is:', new_feature.shape)
 print(new_feature.max(), new_feature.min())
