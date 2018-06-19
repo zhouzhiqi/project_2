@@ -143,8 +143,8 @@ class OneHotEncoder(object):
         data_tmp: 数据
         get_index: 通过组合好的特征名, 获取索引
         return: 返回稀疏矩阵scipy.sparse, 不包含'id'"""
-        # 初始化onehot数组, 全部为0, 有值置1             这里的+1,是用来累加那些频率小于10的特征取值
-        onehot = np.zeros((data_tmp.shape[0],get_index.shape[0]+1), dtype=np.int8)
+        # 初始化onehot数组, 全部为0, 有值置1     get_index的[-1],是用来累加那些频率小于10的特征取值
+        onehot = np.zeros((data_tmp.shape[0],get_index.shape[0]), dtype=np.int8)
 
         # 把特征名称与特征取值结合起来, 做为get_index的索引
         for c in data_tmp.columns: 
@@ -157,8 +157,8 @@ class OneHotEncoder(object):
             for c in index:  #逐个values去get_index的索引
                 try: j =  get_index[c] #找到索引, 赋值 1
                 except KeyError:  #找不到索引, 说明频率小于10,
-                    onehot[i, -1] += 1 
-                    continue   #在末尾累加
+                    onehot[i, -1] += 1  #在末尾累加
+                    continue   
                 onehot[i, j] = 1  #对应位置赋值为1
 
         # 拆分时间
@@ -200,6 +200,18 @@ class OneHotEncoder(object):
             split_hour[i, hour[i]//5+33] = 1  #33-37
         return ss.csr_matrix(split_hour)
 
+    def XgboostEncoder(self, X_train, y_train, model_path, model_name, num_trees, deep ):
+        "对xgboost输出的结点位置文件, 进行onehot"
+        #转为xgb专用数据格式
+        print('to xgb.DMatrix')
+        xgtrain = xgb.DMatrix(X_train, label = y_train,)
+        #导入模型
+        xgb_model = xgb.Booster(model_file=model_path + 'tree{0}_deep{1}.xgboost'.format(num_trees, deep))
+        #开始预测
+        print('xgboost predict . . .')
+        new_feature = xgb_model.predict(xgtrain, pred_leaf=True)  #pred_leaf=True, 输出叶子结点索引
+        #对新特征onehot编码
+
 
     def GetOnehotColums(self, data_path, file_name='count', threshold=10):
         """获取OneHot编码后的列名columns"""
@@ -208,7 +220,7 @@ class OneHotEncoder(object):
         #读取计数文件, 第一列为index (index_col=0)
         more_th = count[count['total']>=threshold].index  
         #找出频率大于 threshold 的特征名与特征值的组合, 做为OneHot的列名columns, 
-        #more_th = more_th.append(pd.Index(['hour', 'week', 'click']))  #添加数值型特征
+        more_th = more_th.append(pd.Index(['less_threshold']))  #添加数值型特征
         get_index = pd.Series(data=np.arange(more_th.shape[0]), index=more_th, dtype=np.uint64)
         #把OneHot的列名columns, 改造成: 特征名与特征值的组合 做为 下标索引, 顺序id 做为 取值
         #简言之: 名称 索引 -> ID 索引
