@@ -43,7 +43,7 @@ import gc
 import os
 import scipy.sparse as ss
 #from  sklearn.cross_validation  import  train_test_split 
-#import xgboost as xgb
+import xgboost as xgb
 import tarfile
 from multiprocessing import Pool
 
@@ -126,6 +126,9 @@ class OneHotEncoder(object):
         data_end = param['data_end']  #数据终止索引
         output_path = param['output_path']  #输出文件夹
         threshold = param['threshold']  #对频率>=threshold的特征, 进行onehot编码
+        model_path = param['model_path']
+        num_trees = param['num_trees']
+        deep = param['deep']
         
         self.total_size = 0  #已经读取的数据量
         self.data_over = False  #数据是否读取完全
@@ -133,48 +136,51 @@ class OneHotEncoder(object):
         get_index = self.GetOnehotColums(data_path, 'count', threshold)  #获取onehot的columns
         data = self.LoadData(data_path, file_name)  #迭代导入数据
         data = self.JumpData(data, data_begin, chunksize)  #跳过前data_begin条数据
-        X_train, y_train = self.Train(data, get_index, data_end, chunksize)  #处理数据, onehot编码, 返回稀疏矩阵
+        X_train, y_train = self.Train(data, get_index, data_end, chunksize,  model_path,  num_trees, deep)  #处理数据, onehot编码, 返回稀疏矩阵
         self.SaveNpz(X_train, y_train, output_path, file_name, data_begin, threshold)  #保存 稀疏矩阵.npz
 
 
-    def GetOneHot(self, data_tmp,  get_index):
+    def GetOneHot(self, data_tmp,  get_index, model_path,  num_trees, deep ):
         """对数据进行OneHot编码,
         
         data_tmp: 数据
         get_index: 通过组合好的特征名, 获取索引
         return: 返回稀疏矩阵scipy.sparse, 不包含'id'"""
-        # 初始化onehot数组, 全部为0, 有值置1     get_index的[-1],是用来累加那些频率小于10的特征取值
-        onehot = np.zeros((data_tmp.shape[0],get_index.shape[0]), dtype=np.int8)
-
-        # 把特征名称与特征取值结合起来, 做为get_index的索引
-        for c in data_tmp.columns: 
-            if c in ['id', 'click', 'hour']: continue
-            data_tmp.loc[:, c] = data_tmp.loc[:, c].map(lambda x: c+'='+str(x))
-
-        # OneHot编码, 对符合条件的位置, 赋值 1
-        for i in np.arange(data_tmp.shape[0]):
-            index = data_tmp.iloc[i,3:]  #取出['C1':]的values(合成过)
-            for c in index:  #逐个values去get_index的索引
-                try: j =  get_index[c] #找到索引, 赋值 1
-                except KeyError:  #找不到索引, 说明频率小于10,
-                    onehot[i, -1] += 1  #在末尾累加
-                    continue   
-                onehot[i, j] = 1  #对应位置赋值为1
-
-        # 拆分时间
+        X_train_cat = self.CategoryEncoder(data_tmp, get_index)
+        #print(X_train_cat.shape)
         split_hour = self.SplitHour(data_tmp)
-
-        # 压缩数据, onehot编码用行压缩, label用列压缩
-        X_train = ss.csr_matrix(onehot)  #转成 行 稀疏矩阵
-        X_train = ss.hstack((X_train, split_hour))  #和拆分好的时间 以 列 拼接
-        y_train = ss.csc_matrix(data_tmp.loc[:, 'click'].values)  #转成 列 稀疏矩阵
+        #print(split_hour.shape)
+        X_train = ss.hstack((X_train_cat, split_hour))  #和拆分好的时间 以 列 拼接
         #print(X_train.shape)
+
+        target = data_tmp.loc[:, 'click'].values
+        y_train = ss.csc_matrix(target)  #转成 列 稀疏矩阵
+        #print(y_train.shape)
+
+        # 如果用不到xgb的叶子结点输出, 把下面两行注释掉就可以了
+        X_train_xgb = self.XgboostEncoder(X_train, target, model_path,  num_trees, deep )
+        #print(X_train_xgb.shape)
+        X_train = ss.hstack((X_train, X_train_xgb))  #和拆分好的时间 以 列 拼接
+        #print(X_train.shape)
+
         return X_train, y_train
 
     def LoadData(self, data_path, file_name):
         """迭代加载数据"""
         data = pd.read_csv(data_path+'{0}.csv'.format(file_name),  
                             iterator=True)
+        return data
+
+    def JumpData(self, data, data_begin, chunksize):
+        """跳过前 data_begin 条数据"""
+        #print('jump data')
+        if data_begin <= 0: return data
+        while True:
+            data_tmp = self.NextChunk(data, chunksize)  #每次读取chunk_size条数据 
+            if self.total_size < data_begin: continue  #如果总的数据量小于 开始时的数据量, pass
+            else: break  #如果总的数据量大于 开始时的数据量, 往下进行
+            gc.collect()
+        print('{0} data has jumped'.format(self.total_size))
         return data
 
     def NextChunk(self, data, chunksize):
@@ -185,46 +191,6 @@ class OneHotEncoder(object):
         else: 
             self.total_size += data_tmp.shape[0]  #累加当前数据量
             return data_tmp  #返回取出的数据
-
-    def SplitHour(self, data_tmp):
-        """对时间进行拆分, 并onehot"""
-        # 拆分后的新特征 ['workingday':1-5,6-7, 'week'1~7,  'hour':0~23,
-        # 'certaintimes':0-4,5-9,10-14,15-19,20-23,] 共37列
-        split_hour = np.zeros((data_tmp.shape[0], 38), dtype=np.int8)
-        hour = data_tmp.loc[:, 'hour'].values %14100000 %100
-        week = ((data_tmp.loc[:, 'hour'].values %14100000 //100) %7 +2) %7
-        for i in np.arange(data_tmp.shape[0]):
-            split_hour[i, week[i]//5] = 1  #0-1
-            split_hour[i, week[i]+1] = 1   #2-8
-            split_hour[i, hour[i]+9] = 1   #9-32
-            split_hour[i, hour[i]//5+33] = 1  #33-37
-        return ss.csr_matrix(split_hour)
-
-    def XgboostEncoder(self, X_train, y_train, model_path,  num_trees, deep ):
-        "对xgboost输出的结点位置文件, 进行onehot"
-        #注意y_train = y_train.toarray().astype(np.float32)[0]
-        #model_name = 'tree{0}_deep{1}.xgboost'.format(num_trees, deep)
-        #生成空白onehot矩阵, 用于赋值为1,  展开后的维数:每颗树实际有2**(deep+1)个结点, deep为模型的参数max_depth
-        length = 2**(deep+1)
-        leaf_index = np.zeros((X_train.shape[0], num_trees*length), dtype=np.int8)
-        #转为xgb专用数据格式
-        print('to xgb.DMatrix')
-        xgtrain = xgb.DMatrix(X_train, label = y_train,)
-        #导入模型
-        xgb_model = xgb.Booster(model_file=model_path + 'tree{0}_deep{1}.xgboost'.format(num_trees, deep))
-        #开始预测
-        print('xgboost predict . . .')
-        new_feature = xgb_model.predict(xgtrain, pred_leaf=True)  #pred_leaf=True, 输出叶子结点索引
-        #对新特征onehot编码
-        for i in np.arange(X_train.shape[0]):
-            for tree in np.arange(num_trees):  
-                #tree*length是每颗树索引的区域块, 
-                #new_feature[i,tree]是该颗树的叶子结点索引
-                j = tree*length + new_feature[i,tree]
-                leaf_index[i, j] = 1
-
-        return ss.csr_matrix(leaf_index)
-
 
     def GetOnehotColums(self, data_path, file_name='count', threshold=10):
         """获取OneHot编码后的列名columns"""
@@ -241,24 +207,73 @@ class OneHotEncoder(object):
         gc.collect()
         return get_index
 
-    def JumpData(self, data, data_begin, chunksize):
-        """跳过前 data_begin 条数据"""
-        #print('jump data')
-        if data_begin <= 0: return data
-        while True:
-            data_tmp = self.NextChunk(data, chunksize)  #每次读取chunk_size条数据 
-            if self.total_size < data_begin: continue  #如果总的数据量小于 开始时的数据量, pass
-            else: break  #如果总的数据量大于 开始时的数据量, 往下进行
-            gc.collect()
-        print('{0} data has jumped'.format(self.total_size))
-        return data
+    def SplitHour(self, data_tmp):
+        """对时间进行拆分, 并onehot"""
+        # 拆分后的新特征 ['workingday':1-5,6-7, 'week'1~7,  'hour':0~23,
+        # 'certaintimes':0-4,5-9,10-14,15-19,20-23,] 共37列
+        split_hour = np.zeros((data_tmp.shape[0], 38), dtype=np.int8)
+        hour = data_tmp.loc[:, 'hour'].values %14100000 %100
+        week = ((data_tmp.loc[:, 'hour'].values %14100000 //100) %7 +2) %7
+        for i in np.arange(data_tmp.shape[0]):
+            split_hour[i, week[i]//5] = 1  #0-1
+            split_hour[i, week[i]+1] = 1   #2-8
+            split_hour[i, hour[i]+9] = 1   #9-32
+            split_hour[i, hour[i]//5+33] = 1  #33-37
+        return ss.csr_matrix(split_hour)
 
-    def Train(self, data, get_index, data_end, chunksize):
+    def CategoryEncoder(self, data_tmp,  get_index):
+        """对类别型变量进行onehot编码"""
+        # 初始化onehot数组, 全部为0, 有值置1     get_index的[-1],是用来累加那些频率小于10的特征取值
+        onehot = np.zeros((data_tmp.shape[0],get_index.shape[0]), dtype=np.int8)
+
+        # 把特征名称与特征取值结合起来, 做为get_index的索引
+        for c in data_tmp.columns: 
+            if c in ['id', 'click', 'hour']: continue #调过非类别型变量
+            data_tmp.loc[:, c] = data_tmp.loc[:, c].map(lambda x: c+'='+str(x))
+
+        # OneHot编码, 对符合条件的位置, 赋值 1
+        for i in np.arange(data_tmp.shape[0]):
+            index = data_tmp.iloc[i,3:]  #取出['C1':]的values(合成过)
+            for c in index:  #逐个values去get_index的索引
+                try: j =  get_index[c] #找到索引, 赋值 1
+                except KeyError:  #找不到索引, 说明频率小于10,
+                    onehot[i, -1] += 1  #在末尾累加
+                    continue   
+                onehot[i, j] = 1  #对应位置赋值为1
+        
+        return ss.csr_matrix(onehot)  #转成 行 稀疏矩阵
+
+    def XgboostEncoder(self, X_train, y_train, model_path,  num_trees, deep ):
+        "对xgboost输出的结点位置文件, 进行onehot"
+        #注意y_train = y_train.toarray().astype(np.float32)[0]
+        #model_name = 'tree{0}_deep{1}.xgboost'.format(num_trees, deep)
+        #生成空白onehot矩阵, 用于赋值为1,  展开后的维数:每颗树实际有2**(deep+1)个结点, deep为模型的参数max_depth
+        length = 2**(deep+1)
+        leaf_index = np.zeros((X_train.shape[0], num_trees*length), dtype=np.int8)
+        #转为xgb专用数据格式
+        #print('to xgb.DMatrix')
+        xgtrain = xgb.DMatrix(X_train, label = y_train,)
+        #导入模型
+        xgb_model = xgb.Booster(model_file=model_path + 'tree{0}_deep{1}.xgboost'.format(num_trees, deep))
+        #开始预测
+        #print('xgboost predict . . .')
+        new_feature = xgb_model.predict(xgtrain, pred_leaf=True)  #pred_leaf=True, 输出叶子结点索引
+        #对新特征onehot编码
+        for i in np.arange(X_train.shape[0]):
+            for tree in np.arange(num_trees):  
+                #tree*length是每颗树索引的区域块, 
+                #new_feature[i,tree]是该颗树的叶子结点索引
+                j = tree*length + new_feature[i,tree]
+                leaf_index[i, j] = 1
+
+        return ss.csr_matrix(leaf_index)
+
+    def Train(self, data, get_index, data_end, chunksize,  model_path,  num_trees, deep):
         """分割数据循环进行onehot编码, 并不断拼接"""
         start_time = time.time()
         #生成第一次数据的稀疏矩阵, 为后面的拼接做准备
         data_tmp = self.NextChunk(data, chunksize)  #每次读取chunk_size条数据 
-        X_train, y_train = self.GetOneHot(data_tmp,  get_index)  
+        X_train, y_train = self.GetOneHot(data_tmp,  get_index, model_path,  num_trees, deep) 
         #used_time = int(time.time()-start_time)
         #print('{0} data have to OneHot, total cost time: {1}'.format(self.total_size, used_time))
 
@@ -267,7 +282,7 @@ class OneHotEncoder(object):
             if self.total_size >= data_end: break  #先判断数据量是否足够, 若足够, 训练结束
             data_tmp = self.NextChunk(data, chunksize)  #每次读取chunk_size条数据 
             if self.data_over: break #数据读取结束, 训练结束
-            X_train_tmp, y_train_tmp = self.GetOneHot(data_tmp,  get_index) 
+            X_train_tmp, y_train_tmp = self.GetOneHot(data_tmp,  get_index,  model_path,  num_trees, deep) 
             X_train = ss.vstack((X_train, X_train_tmp))  #与原有 行稀疏矩阵 进行 行连接
             y_train = ss.hstack((y_train, y_train_tmp))  #与原有 列稀疏矩阵 进行 列连接
             if self.total_size % (chunksize*10) ==0:
@@ -276,7 +291,6 @@ class OneHotEncoder(object):
             #del X_train_tmp, y_train_tmp, data_tmp #及时删除, 以免内存溢出
             gc.collect()
         return X_train, y_train
-
 
     def SaveNpz(self, X_train, y_train, output_path, file_name, data_begin, threshold=10,):
         """保存最终连接完成的稀疏矩阵"""
@@ -307,16 +321,23 @@ if __name__ == "__main__":
 
     #设定参数
     file_size = 4042898  #总的数据量
-    block_size = 100000  #数据块大小
-    param =[dict( data_path = FLAGS.data_dir,
+    block_size = 10000  #数据块大小
+    param =[dict( 
+            data_path = FLAGS.data_dir,
             file_name = FLAGS.file_name,
             chunksize = FLAGS.chunksize,  #每次处理数据的多少, 必须被block_size整除
             data_begin = XX_data_begin,
             data_end = XX_data_begin+block_size,
             output_path = FLAGS.output_dir,
-            threshold = FLAGS.threshold )
-            for XX_data_begin in range(0,file_size,block_size)]
+            threshold = FLAGS.threshold,
+            model_path = FLAGS.model_dir,
+            num_trees = FLAGS.num_trees,
+            deep = FLAGS.max_depth 
+                ) 
+            for XX_data_begin in range(0,file_size,block_size)
+            ]
     # 多进程处理onehot
+    OneHotEncoder(param[1])
     with Pool(4) as p:  #4为进程数, 可改为更大
         p.map(OneHotEncoder, param)
     
