@@ -1,12 +1,16 @@
 
 # coding: utf-8
 
-import os
-print(os.getcwd())
-#os.chdir('/media/zhou/0004DD1700005FE8/AI/00/project_2/')
-os.chdir('E:/AI/00/project_2')
-print(os.getcwd())
+# filelist: 
+#         train:40428967,  
+#     minitrain:4042898,  
+# miniminitrain:404291,  
+#    test_click:4577464
+#  
 
+#import os
+#os.chdir('/media/zhou/0004DD1700005FE8/AI/00/project_2/')
+#os.chdir('E:/AI/00/project_2')
 
 try: 
     from tinyenv.flags import flags
@@ -15,16 +19,11 @@ except ImportError:
     class flags(object):
         def __init__(self):
             self.file_name = 'minitrain'
-            self.output_dir = '../data/project_2/models/'
-            self.data_dir = '../data/project_2/output_{0}/'.format(self.file_name)
-            self.model_dir = '../data/project_2/models/'
-            self.chunksize = 1e3
-            self.threshold = 10
-            self.data_begin = 0
-            self.data_end = 1e5
-            self.id_index = 0
-            self.num_trees = 30
-            self.max_depth = 8
+            self.onehot_name = 'Onehot_A'
+            self.data_dir = '../data/project_2/data/{0}/'.format(self.onehot_name)
+            self.output_dir = '../data/project_2/output/{0}/'.format(self.onehot_name)
+            self.model_dir = '../data/project_2/models/{0}/'.format(self.onehot_name)
+
 
 #实例化class
 FLAGS = flags()
@@ -60,7 +59,7 @@ y_train = y_train.toarray().astype(np.float32)[0]
 
 #导入模型
 
-lr= LogisticRegression(multi_class='ovr', penalty='l2', solver='sag', C=0.1, n_jobs=-1)
+lr= LogisticRegression(multi_class='ovr', penalty='l2', solver='saga', C=0.5, n_jobs=-1)
 
 #开始训练
 start_time = time.time()
@@ -68,8 +67,9 @@ print('training . . . ')
 lr.fit(X_train, y_train, )
 print('cost time:{0}'.format(int(time.time() - start_time)))
 
+c=0.5
 #保存模型
-joblib.dump(lr, model_path+'LR_sklearn.model')
+joblib.dump(lr, model_path+'LR_C{0}.sklearn'.format(c))
 
 #进行评价
 train_preds = lr.predict_proba(X_train)[:,1]

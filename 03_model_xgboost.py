@@ -1,11 +1,15 @@
 # coding: utf-8
 
-import os
-print(os.getcwd())
-#os.chdir('/media/zhou/0004DD1700005FE8/AI/00/project_2/')
-os.chdir('E:/AI/00/project_2')
-print(os.getcwd())
+# filelist: 
+#         train:40428967,  
+#     minitrain:4042898,  
+# miniminitrain:404291,  
+#    test_click:4577464
+#  
 
+#import os
+#os.chdir('/media/zhou/0004DD1700005FE8/AI/00/project_2/')
+#os.chdir('E:/AI/00/project_2')
 
 try: 
     from tinyenv.flags import flags
@@ -14,16 +18,11 @@ except ImportError:
     class flags(object):
         def __init__(self):
             self.file_name = 'minitrain'
-            self.output_dir = '../data/project_2/models/'
-            self.data_dir = '../data/project_2/output_{0}/'.format(self.file_name)
-            self.model_dir = '../data/project_2/models/'
-            self.chunksize = 1e3
-            self.threshold = 10
-            self.data_begin = 0
-            self.data_end = 1e5
-            self.id_index = 0
-            self.num_trees = 30
-            self.max_depth = 8
+            self.onehot_name = 'Onehot_A'
+            self.data_dir = '../data/project_2/data/{0}/'.format(self.onehot_name)
+            self.output_dir = '../data/project_2/output/{0}/'.format(self.onehot_name)
+            self.model_dir = '../data/project_2/models/{0}/'.format(self.onehot_name)
+
 
 #实例化class
 FLAGS = flags()
@@ -83,6 +82,7 @@ num_trees = FLAGS.num_trees  #树的数量
 
 #调用cv函数
 #bst_train = xgb.cv(param, xgtrain, num_trees, nfold=3, stratified=True)
+#print('cost time:{0}'.format(int(time.time() - start_time)))
 #打印训练信息
 #print(bst_train)
 

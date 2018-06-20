@@ -1,12 +1,15 @@
-
 # coding: utf-8
 
-import os
-print(os.getcwd())
-#os.chdir('/media/zhou/0004DD1700005FE8/AI/00/project_2/')
-os.chdir('E:/AI/00/project_2')
-print(os.getcwd())
+# filelist: 
+#         train:40428967,  
+#     minitrain:4042898,  
+# miniminitrain:404291,  
+#    test_click:4577464
+#  
 
+#import os
+#os.chdir('/media/zhou/0004DD1700005FE8/AI/00/project_2/')
+#os.chdir('E:/AI/00/project_2')
 
 try: 
     from tinyenv.flags import flags
@@ -15,16 +18,11 @@ except ImportError:
     class flags(object):
         def __init__(self):
             self.file_name = 'minitrain'
-            self.output_dir = '../data/project_2/models/'
-            self.data_dir = '../data/project_2/output_{0}/'.format(self.file_name)
-            self.model_dir = '../data/project_2/models/'
-            self.chunksize = 1e3
-            self.threshold = 10
-            self.data_begin = 0
-            self.data_end = 1e5
-            self.id_index = 0
-            self.num_trees = 30
-            self.max_depth = 8
+            self.onehot_name = 'Onehot_A'
+            self.data_dir = '../data/project_2/data/{0}/'.format(self.onehot_name)
+            self.output_dir = '../data/project_2/output/{0}/'.format(self.onehot_name)
+            self.model_dir = '../data/project_2/models/{0}/'.format(self.onehot_name)
+
 
 #实例化class
 FLAGS = flags()
@@ -80,9 +78,10 @@ param = dict(
         
 deep = 8   #实际树的深度为 max_depth+1
 num_trees = 30  #树的数量
+c = 0.5  #正则化惩罚系数
 
 #导入模型
-#lr = LogisticRegression(multi_class='ovr', penalty='l2', solver='sag', C=0.1, n_jobs=-1)
+#lr = LogisticRegression(multi_class='ovr', penalty='l2', solver='sag', C=c, n_jobs=-1)
 rf = DecisionTreeClassifier( criterion='entropy', min_samples_split=4,
                             max_depth=8,  random_state=33, )
 #开始训练
