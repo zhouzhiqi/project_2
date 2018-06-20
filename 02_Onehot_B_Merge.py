@@ -1,18 +1,15 @@
 # coding: utf-8
 
 # filelist: 
-#         train:40428967,   count:9449445,
-#     minitrain:4042898,   more_5:1544466
-# miniminitrain:404291,   more_10:645381
+#         train:40428967,  
+#     minitrain:4042898,  
+# miniminitrain:404291,  
 #    test_click:4577464
 #  
 
-
-import os
-print(os.getcwd())
+#import os
 #os.chdir('/media/zhou/0004DD1700005FE8/AI/00/project_2/')
 #os.chdir('E:/AI/00/project_2')
-print(os.getcwd())
 
 try: 
     from tinyenv.flags import flags
@@ -20,19 +17,12 @@ except ImportError:
     # 若在本地运行，则自动生成相同的class
     class flags(object):
         def __init__(self):
-            self.file_name = 'test_click'
-            self.output_name = 'Onehot_B'
-            self.output_dir = '../data/project_2/models/'
-            self.data_dir = '../data/project_2/'#output_{0}/'.format(self.file_name)
-            self.model_dir = '../data/project_2/models/'
-            self.chunksize = 1e6
-            self.threshold = 10
-            self.data_begin = 0
-            self.data_end = 1e5
-            self.id_index = 0
-            self.num_trees = 30
-            self.max_depth = 8
-            self.split = '&'
+            self.file_name = 'minitrain'
+            self.onehot_name = 'Onehot_A'
+            self.data_dir = '../data/project_2/data/{0}/'.format(self.onehot_name)
+            self.output_dir = '../data/project_2/output/{0}/'.format(self.onehot_name)
+            self.model_dir = '../data/project_2/models/{0}/'.format(self.onehot_name)
+
 
 #实例化class
 FLAGS = flags()
