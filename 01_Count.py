@@ -1,18 +1,15 @@
 # coding: utf-8
 
 # filelist: 
-#         train:40428967,   count:9449445,
-#     minitrain:4042898,   more_5:1544466
-# miniminitrain:404291,   more_10:645381
+#         train:40428967,  
+#     minitrain:4042898,  
+# miniminitrain:404291,  
 #    test_click:4577464
 #  
 
-
-import os
-print(os.getcwd())
+#import os
 #os.chdir('/media/zhou/0004DD1700005FE8/AI/00/project_2/')
 #os.chdir('E:/AI/00/project_2')
-print(os.getcwd())
 
 try: 
     from tinyenv.flags import flags
@@ -20,22 +17,16 @@ except ImportError:
     # 若在本地运行，则自动生成相同的class
     class flags(object):
         def __init__(self):
-            self.file_name = 'train'
-            self.output_name = 'Onehot_B'
-            self.output_dir = '../data/project_2/models/'
-            self.data_dir = '../data/project_2/Onehot_B/'#output_{0}/'.format(self.file_name)
-            self.model_dir = '../data/project_2/models/'
-            self.chunksize = 1e6
-            self.threshold = 10
-            self.data_begin = 0
-            self.data_end = 1e5
-            self.id_index = 0
-            self.num_trees = 30
-            self.max_depth = 8
-            self.split = '&'
+            self.file_name = 'minitrain'
+            self.onehot_name = 'Onehot_A'
+            self.data_dir = '../data/project_2/data/{0}/'.format(self.onehot_name)
+            self.output_dir = '../data/project_2/output/{0}/'.format(self.onehot_name)
+            self.model_dir = '../data/project_2/models/{0}/'.format(self.onehot_name)
+
 
 #实例化class
 FLAGS = flags()
+
 
 import numpy as np
 import pandas as pd
@@ -52,9 +43,9 @@ class Count(object):
     columns = ('click=0','click=1','total','ratio')
     index = (column + split + value, 如:'C14=10289')"""
     
-    def __init__(self, ):
+    def __init__(self, data_path,):
         """初始化参数"""
-        self.data_path = '../data/project_2/Onehot_B/'  #数据路径
+        self.data_path = data_path  #数据路径
         #self.file_name = self.data_path + 'train.csv'
         self.file_name = self.data_path + 'train.csv'
         self.data = pd.read_csv(self.file_name, iterator=True)  #迭代读取csv
@@ -67,8 +58,8 @@ class Count(object):
         i = 0
         start_time = time.time()
         while True:
-            #i+=1
-            #if i>10:break
+            i+=1
+            if i>5:break
             try: data_tmp = self.Loaddata()  #每次读取chunk_size条数据 
             except StopIteration: break  #读取结束后跳出循环
             click_0_tmp, click_1_tmp = self.GetClickCount(data_tmp)  #获取统计结果
@@ -136,10 +127,10 @@ class Count(object):
         self.finale_counts['ratio'] = self.finale_counts['total'] / self.total_size
         #return self.finale_counts
         
-    def Save(self, file_name='Onehot_B_Count.csv'):
+    def Save(self, file_name='count.csv'):
         """将数据保存在原有数据文件夹下"""
         print('data saving in {0}'.format(self.data_path+file_name))
         self.finale_counts.to_csv(self.data_path+file_name)
 
 
-Count()
+Count(FLAGS.data_dir)
