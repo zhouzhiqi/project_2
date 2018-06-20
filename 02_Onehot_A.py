@@ -1,19 +1,15 @@
 # coding: utf-8
 
 # filelist: 
-#         train:40428967,   count:9449445,
-#     minitrain:4042898,   more_5:1544466
-# miniminitrain:404291,   more_10:645381
+#         train:40428967,  
+#     minitrain:4042898,  
+# miniminitrain:404291,  
 #    test_click:4577464
 #  
 
-
-import os
-print(os.getcwd())
+#import os
 #os.chdir('/media/zhou/0004DD1700005FE8/AI/00/project_2/')
 #os.chdir('E:/AI/00/project_2')
-print(os.getcwd())
-
 
 try: 
     from tinyenv.flags import flags
@@ -21,20 +17,23 @@ except ImportError:
     # 若在本地运行，则自动生成相同的class
     class flags(object):
         def __init__(self):
-            self.file_name = 'minitrain'
-            self.output_dir = '../data/project_2/models/'
-            self.data_dir = '../data/project_2/Onehot_B/'#.format(self.file_name)
-            self.model_dir = '../data/project_2/models/'
-            self.chunksize = 1e3
-            self.threshold = 10
-            self.data_begin = 0
-            self.data_end = 1e5
-            self.id_index = 0
-            self.num_trees = 30
-            self.max_depth = 8
+            self.file_name = 'test_click'
+            self.onehot_name = 'Onehot_B'
+            self.data_dir = '../data/project_2/data/{0}/'.format(self.onehot_name)
+            self.output_dir = '../data/project_2/output/{0}/'.format(self.onehot_name)
+            self.model_dir = '../data/project_2/models/{0}/'.format(self.onehot_name)
+
+class params(object):
+    def __init__(self, ):
+        self.threshold = 10
+        self.chunksize = 1e3
+        self.num_trees = 30
+        self.deep = 8
+        self.split = '='
 
 #实例化class
 FLAGS = flags()
+PARAMS = params()
 
 import numpy as np
 import pandas as pd
@@ -55,39 +54,6 @@ def ExtractData( data_path):
     for file_name in file_list: #把所有.tar.gz解压到data_path
         with tarfile.open(data_path + file_name, 'r:gz') as tar: 
             tar.extractall(data_path)
-
-#保存文件中的'id'
-class SaveID(object):
-    """把文件中的'id'列读取出来, 并保存"""
-
-    def __init__(self, data_path, output_path, file_name, chunksize, index=0):
-        self.data_over = False
-        chunksize *= 1000 #每次读取数据
-        output_name = output_path + '{0}_id.csv'.format(file_name)  #输出文件的名子
-        data = self.LoadData(data_path, file_name, index)  #迭代导入数据
-        data.get_chunk(1).to_csv(output_name, mode='w', index=False)  #先写入一条数据, 带有header
-        self.total_size = 1
-        while True:
-            data_tmp = self.NextChunk(data, chunksize)  #迭代读取数据
-            if self.data_over: break  #如果数据读取完毕, 跳出循环
-            data_tmp.to_csv(output_name, mode='a', header=False, index=False) #累加保存csv文件
-            gc.collect()
-        print('the size of [id] in {0}.csv is: {1} '.format(file_name, self.total_size))
-
-    def LoadData(self, data_path, file_name, index):
-        """迭代加载数据"""
-        data = pd.read_csv(data_path+'{0}.csv'.format(file_name), 
-                            usecols=[index], dtype=np.uint64, iterator=True)  #[index]是'id'所在的列索引
-        return data
-
-    def NextChunk(self, data, chunksize):
-        """获取 chunksize 条数据"""
-        #0.4M条数据用时44min, 改变chunksize基本不会影响处理速度
-        try: data_tmp = data.get_chunk(chunksize)  #每次读取chunk_size条数据 
-        except StopIteration: self.data_over = True  #读取结束后跳出循环
-        else: 
-            self.total_size += data_tmp.shape[0]  #累加当前数据量
-            return data_tmp  #返回取出的数据
 
 
 #合并.npz
@@ -110,7 +76,7 @@ def MergeNpz(output_path, file_name, data_begin, threshold=10,):
     #保存最终连接完成的稀疏矩阵
     ss.save_npz(output_path+'{0}_X_more{1}'.format(file_name, threshold), X_train)
     ss.save_npz(output_path+'{0}_y_more{1}'.format(file_name, threshold), y_train)
-    print('saved ^_^')
+    print('saved in {0}'.format(output_path))
     return X_train, y_train
 
 #读入数据并onehot
@@ -158,9 +124,9 @@ class OneHotEncoder(object):
         #print(y_train.shape)
 
         # 如果用不到xgb的叶子结点输出, 把下面两行注释掉就可以了
-        X_train_xgb = self.XgboostEncoder(X_train, target, model_path,  num_trees, deep )
+        #X_train_xgb = self.XgboostEncoder(X_train, target, model_path,  num_trees, deep )
         #print(X_train_xgb.shape)
-        X_train = ss.hstack((X_train, X_train_xgb))  #和拆分好的时间 以 列 拼接
+        #X_train = ss.hstack((X_train, X_train_xgb))  #和拆分好的时间 以 列 拼接
         #print(X_train.shape)
 
         return X_train, y_train
@@ -320,24 +286,26 @@ if __name__ == "__main__":
     #ExtractData(FLAGS.data_dir)
 
     #设定参数
-    file_size = 4042898  #总的数据量
-    block_size = 10000  #数据块大小
+    totalsize = {'minitrain':4042898, 'test_click':4577464}
+    file_size = totalsize[FLAGS.file_name]  #总的数据量
+    block_size = 100000  #数据块大小
     param =[dict( 
             data_path = FLAGS.data_dir,
             file_name = FLAGS.file_name,
-            chunksize = FLAGS.chunksize,  #每次处理数据的多少, 必须被block_size整除
-            data_begin = XX_data_begin,
-            data_end = XX_data_begin+block_size,
+            chunksize = PARAMS.chunksize,  #每次处理数据的多少, 必须被block_size整除
+            data_begin = begin,
+            data_end = begin+block_size,
             output_path = FLAGS.output_dir,
-            threshold = FLAGS.threshold,
+            threshold = PARAMS.threshold,
             model_path = FLAGS.model_dir,
-            num_trees = FLAGS.num_trees,
-            deep = FLAGS.max_depth 
+            num_trees = PARAMS.num_trees,
+            deep = PARAMS.deep 
                 ) 
-            for XX_data_begin in range(0,file_size,block_size)
+            for begin in range(0,file_size,block_size)
             ]
+
     # 多进程处理onehot
-    OneHotEncoder(param[1])
+    #OneHotEncoder(param[1])
     with Pool(4) as p:  #4为进程数, 可改为更大
         p.map(OneHotEncoder, param)
     
@@ -346,8 +314,8 @@ if __name__ == "__main__":
     output_path = FLAGS.output_dir
     file_name = FLAGS.file_name
     data_begins = [i for i in range(0,file_size,block_size)]
-    threshold = FLAGS.threshold
-    chunksize = FLAGS.chunksize
+    threshold = PARAMS.threshold
+    chunksize = PARAMS.chunksize
     # 把生成好的.npz全部合并可以选择部分合并, 
     # 把要合并的begin 放到 list(data_begins)中, 
     # 如[0,200000,900000]做val, [100000,300000, . . . ]做训练, 
