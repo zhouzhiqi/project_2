@@ -17,8 +17,8 @@ except ImportError:
     # 若在本地运行，则自动生成相同的class
     class flags(object):
         def __init__(self):
-            self.file_name = 'test_click'
-            self.onehot_name = 'Onehot_B'
+            self.file_name = 'minitrain'
+            self.onehot_name = 'Onehot_A'
             self.data_dir = '../data/project_2/data/{0}/'.format(self.onehot_name)
             self.output_dir = '../data/project_2/output/{0}/'.format(self.onehot_name)
             self.model_dir = '../data/project_2/models/{0}/'.format(self.onehot_name)
@@ -27,7 +27,7 @@ class params(object):
     def __init__(self, ):
         self.threshold = 10
         self.chunksize = 1e3
-        self.num_trees = 30
+        self.num_trees = 50
         self.deep = 8
         self.split = '='
 
@@ -96,8 +96,7 @@ class OneHotEncoder(object):
         num_trees = param['num_trees']
         deep = param['deep']
         
-        self.total_size = 0  #已经读取的数据量
-        self.data_over = False  #数据是否读取完全
+
 
         get_index = self.GetOnehotColums(data_path, 'count', threshold)  #获取onehot的columns
         data = self.LoadData(data_path, file_name)  #迭代导入数据
@@ -132,25 +131,47 @@ class OneHotEncoder(object):
         return X_train, y_train
 
     def LoadData(self, data_path, file_name):
-        """迭代加载数据"""
+        """
+        迭代加载数据
+        
+        data_path: 文件路径,
+        file_name: 文件名称.
+        return: 可用.get_chunk()迭代读取
+        """
+        self.total_size = 0  #已经读取的数据量
+        self.data_over = False  #数据是否读取完全
         data = pd.read_csv(data_path+'{0}.csv'.format(file_name),  
-                            iterator=True)
+                            #usecols=[0,2,6,14]
+                            iterator=True)  #用pandas迭代读取
         return data
 
     def JumpData(self, data, data_begin, chunksize):
-        """跳过前 data_begin 条数据"""
+        """
+        跳过前 data_begin 条数据
+        
+        data: 可用.get_chunk()迭代读取
+        data_begin: 跳过的总数据量
+        chunksize: 每次迭代跳过的数据量
+        return: 跳过后的可迭代数据
+        """
         #print('jump data')
-        if data_begin <= 0: return data
+        if data_begin <= 0: return data  #如果跳过0个, 不跳, 直接返回
         while True:
             data_tmp = self.NextChunk(data, chunksize)  #每次读取chunk_size条数据 
             if self.total_size < data_begin: continue  #如果总的数据量小于 开始时的数据量, pass
             else: break  #如果总的数据量大于 开始时的数据量, 往下进行
             gc.collect()
+        # 输出跳过数据量
         print('{0} data has jumped'.format(self.total_size))
         return data
 
     def NextChunk(self, data, chunksize):
-        """获取 chunksize 条数据"""
+        """
+        获取 chunksize 条数据
+        
+        data: 可用.get_chunk()迭代读取
+        chunksize: 每次迭代跳过的数据量
+        """
         #0.4M条数据用时44min, 改变chunksize基本不会影响处理速度
         try: data_tmp = data.get_chunk(chunksize)  #每次读取chunk_size条数据 
         except StopIteration: self.data_over = True  #读取结束后跳出循环
@@ -176,10 +197,12 @@ class OneHotEncoder(object):
     def SplitHour(self, data_tmp):
         """对时间进行拆分, 并onehot"""
         # 拆分后的新特征 ['workingday':1-5,6-7, 'week'1~7,  'hour':0~23,
-        # 'certaintimes':0-4,5-9,10-14,15-19,20-23,] 共37列
+        # 'certaintimes':0-4,5-9,10-14,15-19,20-23, ] 共38列
         split_hour = np.zeros((data_tmp.shape[0], 38), dtype=np.int8)
         hour = data_tmp.loc[:, 'hour'].values %14100000 %100
         week = ((data_tmp.loc[:, 'hour'].values %14100000 //100) %7 +2) %7
+        #split_hour[:,-1] = hour
+        #split_hour[:,-2] = week
         for i in np.arange(data_tmp.shape[0]):
             split_hour[i, week[i]//5] = 1  #0-1
             split_hour[i, week[i]+1] = 1   #2-8
