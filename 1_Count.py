@@ -17,8 +17,8 @@ except ImportError:
     # 若在本地运行，则自动生成相同的class
     class flags(object):
         def __init__(self):
-            self.file_name = 'minitrain'
-            self.onehot_name = 'Onehot_A'
+            self.file_name = 'train'
+            self.onehot_name = 'Onehot_B'
             self.data_dir = '../data/project_2/data/{0}/'.format(self.onehot_name)
             self.output_dir = '../data/project_2/output/{0}/'.format(self.onehot_name)
             self.model_dir = '../data/project_2/models/{0}/'.format(self.onehot_name)
@@ -58,8 +58,8 @@ class Count(object):
         i = 0
         start_time = time.time()
         while True:
-            i+=1
-            if i>5:break
+            #i+=1
+            #if i>5:break
             try: data_tmp = self.Loaddata()  #每次读取chunk_size条数据 
             except StopIteration: break  #读取结束后跳出循环
             click_0_tmp, click_1_tmp = self.GetClickCount(data_tmp)  #获取统计结果
@@ -119,7 +119,7 @@ class Count(object):
         """将点击数据转为DataFrame"""
         click_0 = click_0.to_frame(name='click=0')  #Series to DataFrame
         click_1 = click_1.to_frame(name='click=1')  #Series to DataFrame
-        self.finale_counts = pd.concat((click_0,click_1),axis=1,sort=False)
+        self.finale_counts = pd.concat((click_0,click_1),axis=1,)#sort=False)
         # 'click=0'与'click=0'进行拼接, 不同索引默认值为 np.nan
         self.finale_counts.fillna(0,inplace=True)  #np.nan to 0
         self.finale_counts['total'] = self.finale_counts['click=0'] + self.finale_counts['click=1']
