@@ -193,16 +193,6 @@ class ClickHistory(object):
         return data_tmp
 
 
-def MergeAllClickHistoryMax( param, ):
-    data_path = param['data_path']
-    days = [d for d in range(21,31)]
-    for d in days:
-        print(d, end='   ')
-        data_tmp = pd.read_csv(data_path+'click_history_{0}.csv'.format(d))
-        day_tmp = data_tmp.pop('day')
-        user_tmp = data_tmp.pop('user')
-        print(max(data_tmp.max()))
-    
 
     
 def ToPickleDump(param,):
