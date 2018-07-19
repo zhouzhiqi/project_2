@@ -15,10 +15,13 @@ from utils import *
 # 设定路径
 raw_data_path = utils.raw_data_path
 tmp_data_path = utils.tmp_data_path
+train_name = utils.train_name
+test_name = utils.test_name
+
 
 # 读取文件
-t0org0 = pd.read_csv(open(raw_data_path + "minitrain", "r+"), dtype = utils.dtypes)
-h0org = pd.read_csv(open(raw_data_path + "minitest", "r+"), dtype = utils.dtypes)
+t0org0 = pd.read_csv(open(raw_data_path + train_name, "r+"), dtype = utils.dtypes)
+h0org = pd.read_csv(open(raw_data_path + test_name, "r+"), dtype = utils.dtypes)
 
 # 对训练数据随机采样
 if utils.sample_pct < 1.0:
